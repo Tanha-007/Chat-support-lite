@@ -1,0 +1,11 @@
+{
+  "name": "deskline-scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "realtime": "node realtime_test.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.0"
+  }
+}

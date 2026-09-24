@@ -1,77 +1,161 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../models/chat_message.dart';
 import '../theme/app_theme.dart';
+import '../util/format.dart';
 
 class MessageBubble extends StatelessWidget {
   const MessageBubble({
     super.key,
     required this.message,
     required this.mine,
+    this.firstInGroup = true,
+    this.lastInGroup = true,
+    this.receipt,
+    this.onLongPress,
+    this.onRetry,
   });
 
   final ChatMessage message;
   final bool mine;
+  final bool firstInGroup;
+  final bool lastInGroup;
+
+  /// "Seen" or "Sent" under the latest outgoing message.
+  final String? receipt;
+  final VoidCallback? onLongPress;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
-    final time = DateFormat.jm().format(message.createdAt);
-    final align = mine ? Alignment.centerRight : Alignment.centerLeft;
-    final bg = mine ? AppColors.bubbleMine : AppColors.bubbleTheirs;
-    final fg = mine ? Colors.white : AppColors.ink;
+    final failed = message.delivery == DeliveryState.failed;
+    final sending = message.delivery == DeliveryState.sending;
+    final hidden = message.hidden;
+
+    final Color bg;
+    final Color fg;
+    Border? border;
+    if (hidden) {
+      bg = Colors.transparent;
+      fg = AppColors.muted;
+      border = Border.all(color: AppColors.lineStrong);
+    } else if (mine) {
+      bg = failed ? AppColors.dangerSoft : AppColors.ink;
+      fg = failed ? AppColors.danger : AppColors.card;
+    } else {
+      bg = AppColors.card;
+      fg = AppColors.ink;
+      border = Border.all(color: AppColors.line);
+    }
+
+    const big = Radius.circular(18);
+    const small = Radius.circular(6);
     final radius = BorderRadius.only(
-      topLeft: const Radius.circular(18),
-      topRight: const Radius.circular(18),
-      bottomLeft: Radius.circular(mine ? 18 : 4),
-      bottomRight: Radius.circular(mine ? 4 : 18),
+      topLeft: !mine && !firstInGroup ? small : big,
+      topRight: mine && !firstInGroup ? small : big,
+      bottomLeft: !mine && !lastInGroup ? small : (mine ? big : small),
+      bottomRight: mine && !lastInGroup ? small : (mine ? small : big),
     );
 
-    return Align(
-      alignment: align,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.78,
-        ),
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: radius,
-            border: mine ? null : Border.all(color: AppColors.line),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.ink.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment:
-                mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-            children: [
-              Text(
-                message.body,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: fg,
-                      height: 1.35,
+    final meta = <String>[
+      if (lastInGroup || failed || sending) clockTime(message.createdAt),
+      if (sending) 'Sending',
+      if (failed) 'Not sent. Tap to retry',
+      if (!sending && !failed && receipt != null) receipt!,
+    ];
+
+    return Padding(
+      padding: EdgeInsets.only(top: firstInGroup ? 10 : 2),
+      child: Column(
+        crossAxisAlignment: mine
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) => ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.8),
+              child: GestureDetector(
+                onLongPress: onLongPress,
+                onSecondaryTap: onLongPress,
+                onTap: failed ? onRetry : onLongPress,
+                child: AnimatedOpacity(
+                  opacity: sending ? 0.6 : 1,
+                  duration: const Duration(milliseconds: 180),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(14, 9, 14, 10),
+                    decoration: BoxDecoration(
+                      color: bg,
+                      borderRadius: radius,
+                      border: border,
                     ),
+                    child: hidden
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.block_rounded,
+                                size: 15,
+                                color: AppColors.muted,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  'Removed by a moderator',
+                                  style: AppType.body(
+                                    14,
+                                    color: fg,
+                                  ).copyWith(fontStyle: FontStyle.italic),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Text(
+                            message.body,
+                            style: AppType.body(15.5, color: fg, height: 1.4),
+                          ),
+                  ),
+                ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                time,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: mine
-                          ? Colors.white.withValues(alpha: 0.75)
-                          : AppColors.muted,
-                      fontSize: 11,
-                    ),
-              ),
-            ],
+            ),
           ),
-        ),
+          if (meta.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+              child: Text(
+                meta.join('  ·  '),
+                style: AppType.mono(
+                  10.5,
+                  color: failed ? AppColors.danger : AppColors.faint,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class DayDivider extends StatelessWidget {
+  const DayDivider({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 20, bottom: 6),
+      child: Row(
+        children: [
+          const Expanded(child: Divider()),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              label.toUpperCase(),
+              style: AppType.mono(10.5, spacing: 1.2),
+            ),
+          ),
+          const Expanded(child: Divider()),
+        ],
       ),
     );
   }

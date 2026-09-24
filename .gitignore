@@ -52,3 +52,7 @@ Check here.txt
 .env
 *.pem
 
+# Test script dependencies and local run logs
+scripts/node_modules/
+*_out.txt
+

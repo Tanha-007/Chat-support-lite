@@ -13,16 +13,10 @@ class TypingDots extends StatefulWidget {
 
 class _TypingDotsState extends State<TypingDots>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat();
-  }
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat();
 
   @override
   void dispose() {
@@ -33,39 +27,53 @@ class _TypingDotsState extends State<TypingDots>
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      padding: const EdgeInsets.only(top: 10, bottom: 4),
       child: Row(
         children: [
-          AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) {
-              return Row(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              border: Border.all(color: AppColors.line),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(18),
+                topRight: Radius.circular(18),
+                bottomRight: Radius.circular(18),
+                bottomLeft: Radius.circular(6),
+              ),
+            ),
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) => Row(
+                mainAxisSize: MainAxisSize.min,
                 children: List.generate(3, (i) {
-                  final t = (_controller.value + i * 0.2) % 1.0;
-                  final dy = (t < 0.5 ? t : 1 - t) * -4;
-                  return Transform.translate(
-                    offset: Offset(0, dy),
-                    child: Container(
-                      width: 6,
-                      height: 6,
-                      margin: const EdgeInsets.only(right: 4),
-                      decoration: const BoxDecoration(
-                        color: AppColors.sky,
-                        shape: BoxShape.circle,
+                  final t = (_controller.value - i * 0.16) % 1.0;
+                  final lift = t < 0.4 ? (t < 0.2 ? t : 0.4 - t) * 20 : 0.0;
+                  return Padding(
+                    padding: EdgeInsets.only(right: i == 2 ? 0 : 4),
+                    child: Transform.translate(
+                      offset: Offset(0, -lift),
+                      child: Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: lift > 0 ? AppColors.inkSoft : AppColors.faint,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                     ),
                   );
                 }),
-              );
-            },
+              ),
+            ),
           ),
-          const SizedBox(width: 6),
-          Text(
-            widget.label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.muted,
-                  fontStyle: FontStyle.italic,
-                ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              widget.label,
+              overflow: TextOverflow.ellipsis,
+              style: AppType.mono(11),
+            ),
           ),
         ],
       ),
